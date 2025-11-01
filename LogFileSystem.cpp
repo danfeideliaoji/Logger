@@ -2,24 +2,18 @@
 #include<filesystem>
 #include<iostream>
 #include<fstream>
-LogFileSystem::LogFileSystem(struct LoggerConfig &loggerConfig)
-    : loggerconfig(loggerConfig)
+LogFileSystem::LogFileSystem()
 {
-    initFromConfig();
+    loggerconfig=std::atomic_load(&loggerConfig);
 }
 
 LogFileSystem::~LogFileSystem()
 {
 }
-void LogFileSystem::initFromConfig()
-{
-    maxfilenumbers = loggerconfig.maxfilenumbers;
-    outputmode = loggerconfig.outputmode;
-}
-size_t LogFileSystem::logsInit(bool keep)
+size_t LogFileSystem::logsInit()
 {
     using namespace std::filesystem;
-    if (keep)
+    if (loggerconfig->keeplastlogs)
     {
         if (!exists("./logs"))
         {
@@ -36,7 +30,8 @@ size_t LogFileSystem::logsInit(bool keep)
                     filenumber++;
                 }
             }
-            return file_size(loggerconfig.logfile);
+            if(filenumber==0) return 0;
+            return file_size(loggerconfig->logfile);
         }
     }
     else
@@ -58,7 +53,8 @@ size_t LogFileSystem::logsInit(bool keep)
 }
 
 void LogFileSystem::logRotate(std::ofstream &logstream)
-{
+{   
+    loggerconfig=std::atomic_load(&loggerConfig);
     logstream.close();
     filenumber++;
     logUpdateDelete();
@@ -67,9 +63,9 @@ void LogFileSystem::logRotate(std::ofstream &logstream)
 void LogFileSystem::logUpdateDelete()
 {
     using namespace std::filesystem;
-    while (filenumber >= loggerconfig.maxfilenumbers)
+    while (filenumber >= loggerconfig->maxfilenumbers)
     {
-        remove(loggerconfig.logfile + "." + std::to_string(filenumber - 1));
+        remove(loggerconfig->logfile + "." + std::to_string(filenumber - 1));
         filenumber--;
     }
     for (int i = filenumber - 1; i >= 0; --i)
@@ -77,11 +73,11 @@ void LogFileSystem::logUpdateDelete()
         std::string oldname;
         if (i == 0)
         {
-            oldname = loggerconfig.logfile;
+            oldname = loggerconfig->logfile;
         }
         else
-            oldname = loggerconfig.logfile + "." + std::to_string(i);
-        std::string newname = loggerconfig.logfile + "." + std::to_string(i + 1);
+            oldname = loggerconfig->logfile + "." + std::to_string(i);
+        std::string newname = loggerconfig->logfile + "." + std::to_string(i + 1);
         if (exists(oldname))
         {
             rename(oldname, newname);
@@ -90,13 +86,13 @@ void LogFileSystem::logUpdateDelete()
 }
 void LogFileSystem::fileCreate(std::ofstream &logstream)
 {
-    if (!(loggerconfig.outputmode & OutPutMode::FILE))
+    if (!(loggerconfig->outputmode & OutPutMode::FILE))
     {
         return;
     }
-    logstream.open(loggerconfig.logfile, std::ios::app);
+    logstream.open(loggerconfig->logfile, std::ios::app);
     if (!logstream.is_open())
     {
-        logstream.open(loggerconfig.logfile, std::ios::out);
+        logstream.open(loggerconfig->logfile, std::ios::out);
     }
 }

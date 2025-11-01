@@ -4,6 +4,8 @@
 #include <string>
 #include <queue>
 #include<thread>
+#include<atomic>
+#include<memory>
 enum class LogLevel
 {   
     DEBUG,
@@ -25,16 +27,14 @@ inline int operator&(OutPutMode a, OutPutMode b)
     return (static_cast<int>(a) & static_cast<int>(b));
 }
 struct LoggerConfig {
-    std::mutex configmutex;
-    size_t maxfilebytes = 1 * 1024 * 1024;
-    int maxfilenumbers = 10;
     LogLevel loglevel = LogLevel::DEBUG;
     OutPutMode outputmode = OutPutMode::FILE;
     std::string logfile = "./logs/log.txt";
+    size_t maxfilebytes = 1 * 1024 * 1024;
+    int maxfilenumbers = 10;
+    bool keeplastlogs=true;
     size_t batchsize = 10;          // 一次写 10 条日志
     std::chrono::milliseconds flushuntervalms{100}; // 等待 50ms 即使队列未满也写
-    std::size_t bufferlimit=1024;
-    static bool ifkeeplastlogs;
 };
 struct Loggermessage{
     std::string message;
@@ -50,3 +50,4 @@ struct LoggerQueue{
     std::condition_variable cv;
     bool stop=false;
 };
+extern std::shared_ptr<struct LoggerConfig> loggerConfig;

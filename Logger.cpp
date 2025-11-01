@@ -7,32 +7,22 @@
 #include <mutex>
 #include <iostream>
 #include <thread>
-
 #include "Logger.h"
-bool LoggerConfig::ifkeeplastlogs = true;
-bool Logger::isexit = false;
+std::shared_ptr<struct LoggerConfig> loggerConfig(std::make_shared<struct LoggerConfig>());
 thread_local std::unique_ptr<LogThreadLocal> Logger::loggerthreadlocal(nullptr);
 Logger::Logger()
-{
-    initFromConfig();
-    Logger::isexit = true;
-    logfilesystem = std::make_unique<LogFileSystem>(loggerconfig);
-    currentfilebyte = logfilesystem->logsInit(LoggerConfig::ifkeeplastlogs);
+{   loggerconfig=std::atomic_load(&loggerConfig);
+    logfilesystem = std::make_unique<LogFileSystem>();
+    currentfilebyte = logfilesystem->logsInit();
     logfilesystem->fileCreate(logstream);
     backgroundthread = std::make_unique<std::thread>(&Logger::backgroundProcess, this);
 }
-void Logger::initFromConfig()
-{
-    maxfilebytes = loggerconfig.maxfilebytes;
-    logfile = loggerconfig.logfile;
-    flushuntervalms = loggerconfig.flushuntervalms;
-}
 Logger::~Logger()
 {
-    {
+    {   
         std::unique_lock<std::mutex> lock(loggerQueue.mutex);
         loggerQueue.stop = true;
-        loggerQueue.cv.notify_all();
+        loggerQueue.cv.notify_one();
     }
     backgroundthread->join();
     logstream.close();
@@ -46,44 +36,44 @@ void Logger::backgroundProcess()
             // std::this_thread::sleep_for(flushuntervalms);
             std::unique_lock<std::mutex> lock(loggerQueue.mutex);
             loggerQueue.cv.wait(lock, [this]
-                                { return !loggerQueue.logQueue.empty() || loggerQueue.stop; });
+                                { return !loggerQueue.logQueue.empty() || loggerQueue.stop; });           
             if (loggerQueue.stop && loggerQueue.logQueue.empty())
             {
                 break;
             }
             backgroundqueue.swap(loggerQueue.logQueue);
         }
-        while (!backgroundqueue.empty())
-        {
+        loggerconfig=std::atomic_load(&loggerConfig);
+        const std::string& timeStr = geCurrenttime();  // 批量处理时使用同一个时间字符串
+        while (!backgroundqueue.empty()){
             auto t = backgroundqueue.front();
             if (t.output & OutPutMode::CONSOLE)
             {
-                std::cout << infoString(t.level) << "[" << geCurrenttime() << "]["
+                std::cout << infoString(t.level) << "[" << timeStr << "]["
                           << t.threadid << "]["
                           << t.file << ":" << t.line << " " << t.message << "\n";
             }
             if (t.output & OutPutMode::FILE)
             {
-                logstream << infoString(t.level) << "[" << geCurrenttime() << "]["
+                logstream << infoString(t.level) << "[" << timeStr << "]["
                           << t.threadid << "]["
                           << t.file << ":" << t.line << "]" << t.message << "\n";
             }
             currentfilebyte += t.message.size() + 48;
-            if (currentfilebyte >= loggerconfig.maxfilebytes * 0.95)
+            if (currentfilebyte >= loggerconfig->maxfilebytes * 0.95)
             {
                 logfilesystem->logRotate(logstream);
                 currentfilebyte = 0;
             }
             backgroundqueue.pop();
         }
-    }
+    }   
 }
-
 void Logger::log(std::string message, LogLevel level, const char *file, int line, OutPutMode output)
 {
     if (!loggerthreadlocal)
     {
-        loggerthreadlocal = std::make_unique<LogThreadLocal>(loggerconfig, loggerQueue);
+        loggerthreadlocal = std::make_unique<LogThreadLocal>(loggerQueue);
     }
     loggerthreadlocal->appendMessage(message, level, output, file, line);
 }

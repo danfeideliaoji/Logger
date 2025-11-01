@@ -12,6 +12,16 @@
 #include"common.h"
 #include"LogThreadLocal.h"
 #include"LogFileSystem.h"
+enum class motifyType
+{
+    LEVEL,
+    OUTPUTMODE,
+    LOGFILE,
+    MAXFILEBYTE,
+    MAXFILENUMBERS,
+    KEEPLASTLOGS
+};
+
 class Logger
 {
 public:
@@ -25,14 +35,12 @@ public:
     void log(std::string message, LogLevel level, const char *file, int line, OutPutMode output = OutPutMode::UNKNOWN);
 
 public:
-    struct LoggerConfig loggerconfig;
-    static bool isexit;
 private:
     void backgroundProcess();
-    void initFromConfig();
     const std::string& geCurrenttime();
     const std::string infoString(LogLevel level);
 private:
+    std::shared_ptr<struct LoggerConfig> loggerconfig;
     static thread_local std::unique_ptr<LogThreadLocal> loggerthreadlocal;
     std::unique_ptr<LogFileSystem> logfilesystem; 
     struct LoggerQueue loggerQueue;
@@ -40,44 +48,105 @@ private:
     std::queue<struct Loggermessage> backgroundqueue;
     std::ofstream logstream;
     std::size_t currentfilebyte = 0;
-    size_t maxfilebytes;
     size_t cachedSec;
     std::string cachedWallTime;
-    std::string logfile ;
-    std::chrono::milliseconds flushuntervalms; // 等待 50ms 即使队列未满也写
 };
+template<typename T>
+void motifyConfig(motifyType type, T value)
+{
+    auto oldconfig = std::atomic_load(&loggerConfig);
+    auto newconfig = std::make_shared<struct LoggerConfig>(*oldconfig);
+    if constexpr (std::is_same<T, LogLevel>::value)
+    {
+        if (type == motifyType::LEVEL)
+        {
+            newconfig->loglevel = value;
+        }
+    }
+    else if constexpr (std::is_same<T, OutPutMode>::value)
+    {
+        if (type == motifyType::OUTPUTMODE)
+        {
+            newconfig->outputmode = value;
+        }
+    }
+    else if constexpr (std::is_same<T, std::string>::value)
+    {
+        if (type == motifyType::LOGFILE)
+        {
+            newconfig->logfile = value;
+        }
+    }
+    else if constexpr (std::is_same<T, std::size_t>::value)
+    {
+        if (type == motifyType::MAXFILEBYTE)
+        {
+            newconfig->maxfilebytes = value;
+        }
+    }
+    else if constexpr (std::is_same<T, int>::value)
+    {
+        if (type == motifyType::MAXFILENUMBERS)
+        {
+            newconfig->maxfilenumbers = value;
+        }
+    }
+    else if constexpr (std::is_same<T, bool>::value)
+    {
+        if (type == motifyType::KEEPLASTLOGS)
+        {
+            newconfig->keeplastlogs = value;
+        }
+    }
+    std::atomic_store(&loggerConfig, newconfig);
+}
+
 void inline LOG_SET_KEEPLASTLOGS(bool keep)
 {
-    LoggerConfig::ifkeeplastlogs = keep;
+    motifyConfig<bool>(motifyType::KEEPLASTLOGS, keep);
 }
 void inline LOG_SET_LEVEL(LogLevel level)
-{   std::unique_lock<std::mutex> lock(Logger::Instance().loggerconfig.configmutex);
-    Logger::Instance().loggerconfig.loglevel = level;
+{   
+    motifyConfig<LogLevel>(motifyType::LEVEL, level);
 }
 void inline LOG_SET_FILES(const std::string &filepath)
-{   std::unique_lock<std::mutex> lock(Logger::Instance().loggerconfig.configmutex);
-    Logger::Instance().loggerconfig.logfile = filepath;
+{   
+    motifyConfig<std::string>(motifyType::LOGFILE, filepath);
 }
 void inline LOG_SET_OUTPUTMODE(OutPutMode mode)
-{   std::unique_lock<std::mutex> lock(Logger::Instance().loggerconfig.configmutex);
-    Logger::Instance().loggerconfig.outputmode = mode;
+{  
+    motifyConfig<OutPutMode>(motifyType::OUTPUTMODE, mode);
 }
 void inline LOG_SET_MAXFILEBYTE(std::size_t size)
-{   std::unique_lock<std::mutex> lock(Logger::Instance().loggerconfig.configmutex);
-    Logger::Instance().loggerconfig.maxfilebytes = size;
+{   
+    motifyConfig<std::size_t>(motifyType::MAXFILEBYTE, size);
 }
 void inline LOG_SET_MAXFILENUMBER(std::size_t number)
-{   std::unique_lock<std::mutex> lock(Logger::Instance().loggerconfig.configmutex);
-    Logger::Instance().loggerconfig.maxfilenumbers = number;
+{  
+    motifyConfig<int>(motifyType::MAXFILENUMBERS, number);
 }
-size_t inline LOG_GET_FILES()
-{   std::unique_lock<std::mutex> lock(Logger::Instance().loggerconfig.configmutex);
-    return Logger::Instance().loggerconfig.maxfilenumbers;
+size_t inline LOG_GET_MAXFILES()
+{     
+    auto config=std::atomic_load(&loggerConfig);
+    return config->maxfilenumbers;
 }
 size_t inline LOG_GET_MAXBYTES()
-{   std::unique_lock<std::mutex> lock(Logger::Instance().loggerconfig.configmutex);
-    return Logger::Instance().loggerconfig.maxfilebytes;
+{    auto config=std::atomic_load(&loggerConfig);
+     return config->maxfilebytes;
 }
+LogLevel inline LOG_GET_LEVEL()
+{   auto config=std::atomic_load(&loggerConfig);
+    return config->loglevel;
+}
+OutPutMode inline LOG_GET_OUTPUTMODE()
+{   auto config=std::atomic_load(&loggerConfig);
+    return config->outputmode;
+}
+bool inline LOG_GET_KEEPLASTLOGS()
+{   auto config=std::atomic_load(&loggerConfig);
+    return config->keeplastlogs;
+}
+
 #define LOG_DEBUG(message) Logger::Instance().log(message, LogLevel::DEBUG, __FILE__, __LINE__);
 #define LOG_INFO(message)  Logger::Instance().log(message, LogLevel::INFO, __FILE__, __LINE__);
 #define LOG_WARN(message)  Logger::Instance().log(message, LogLevel::WARN, __FILE__, __LINE__);

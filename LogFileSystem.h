@@ -2,16 +2,13 @@
 #include "common.h"
 class LogFileSystem {
 public:
-    LogFileSystem( struct LoggerConfig &loggerconfig);
+    LogFileSystem();
     ~LogFileSystem();
-    size_t logsInit(bool keep);
+    size_t logsInit();
     void logRotate(std::ofstream &logstream);
     void fileCreate(std::ofstream &logstream);
 private:
-    void initFromConfig();
     void logUpdateDelete();
-    struct LoggerConfig &loggerconfig;
-    size_t filenumber;
-    size_t maxfilenumbers;
-    OutPutMode outputmode;
+    std::shared_ptr<struct LoggerConfig>loggerconfig;
+    size_t filenumber=0;
 };

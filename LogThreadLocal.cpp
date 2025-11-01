@@ -2,18 +2,11 @@
 #include <chrono>
 #include <mutex>
 #include <iostream>
-LogThreadLocal::LogThreadLocal(struct LoggerConfig& loggerConfig,struct LoggerQueue& Loggerqueue )
-    : loggerQueue(Loggerqueue),loggerconfig(loggerConfig)
+LogThreadLocal::LogThreadLocal(struct LoggerQueue& Loggerqueue )
+    : loggerQueue(Loggerqueue)
 {   
-    initFromConfig();
-}
-void LogThreadLocal::initFromConfig()
-{
-    std::unique_lock<std::mutex> lock(loggerconfig.configmutex);
-    loglevel = loggerconfig.loglevel;
-    outputmode = loggerconfig.outputmode;
-    batchsize = loggerconfig.batchsize;
-    flushuntervalms = loggerconfig.flushuntervalms;
+     loggerconfig=std::atomic_load(&loggerConfig);
+     mythreadid=std::this_thread::get_id();
 }
 LogThreadLocal::~LogThreadLocal()
 {
@@ -22,21 +15,29 @@ LogThreadLocal::~LogThreadLocal()
 void LogThreadLocal::appendMessage( std::string &message,
                                     LogLevel level, OutPutMode output, const char *file, int line)
 {
-    if (level < loglevel)
+    loggerconfig=std::atomic_load(&loggerConfig);
+    if (level < loggerconfig->loglevel)
     {
         return;
     }
     if (output == OutPutMode::UNKNOWN)
     {
-        output = outputmode;
+        output = loggerconfig->outputmode;
     }
-    loggermessages.push({std::move(message),level,output,file,line,std::this_thread::get_id()});
-    if(loggermessages.size()>=batchsize){
+    loggermessages.push({std::move(message),level,output,file,line,mythreadid});
+    auto now=std::chrono::steady_clock::now();
+    if( loggermessages.size()>=loggerconfig->batchsize||std::chrono::duration_cast<std::chrono::milliseconds>(now-lastflushTime)>=loggerconfig->flushuntervalms
+   )
+    {
+        lastflushTime=now;
         messagePush();
+        return;
     }
+    
 }
 void LogThreadLocal::messagePush()
-{   std::unique_lock<std::mutex> lock(loggerQueue.mutex);
+{   
+    std::unique_lock<std::mutex> lock(loggerQueue.mutex);
     while(!loggermessages.empty())
     {
       loggerQueue.logQueue.push(std::move(loggermessages.front()));
