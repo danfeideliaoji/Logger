@@ -76,6 +76,7 @@ private:
 private:
     struct LoggerQueue loggerQueue;
     std::unique_ptr<std::thread> backgroundthread;
+    std::queue<std::string> backgroundqueue;
     std::ofstream logstream;
     std::size_t currentfilebyte = 0;
     std::size_t currentbuffer=0;

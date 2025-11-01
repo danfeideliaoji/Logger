@@ -32,22 +32,22 @@ void Logger::backgroundProcess()
     while (true)
     {
         //  std::cerr<<loggerQueue.stop<<"a";
-        std::unique_lock<std::mutex> lock(loggerQueue.mutex);
-        loggerQueue.cv.wait(lock, [this]
+        {
+            std::unique_lock<std::mutex> lock(loggerQueue.mutex);
+            loggerQueue.cv.wait(lock, [this]
                             { return !loggerQueue.logQueue.empty() || loggerQueue.stop; });
-        if (loggerQueue.stop && loggerQueue.logQueue.empty())
-        {
-            break;
-        }
+            if (loggerQueue.stop && loggerQueue.logQueue.empty())
+            {
+                break;
+            }
+            backgroundqueue.swap(loggerQueue.logQueue);
+        }    
         std::string message;
-        std::size_t cnt = 0;
-        while (!loggerQueue.logQueue.empty() && cnt <= loggerconfig.batchsize)
+        while (!backgroundqueue.empty())
         {
-            message.append(std::move(loggerQueue.logQueue.front()));
-            loggerQueue.logQueue.pop();
-            cnt++;
+            message.append(std::move(backgroundqueue.front()));
+            backgroundqueue.pop();
         }
-        lock.unlock();
         currentfilebyte += message.size();
         if (currentfilebyte >= loggerconfig.maxfilebytes)
         {
@@ -205,7 +205,7 @@ void Logger::logRotate()
 void Logger::logUpdateDelete()
 {
     using namespace std::filesystem;
-    if (filenumber >= loggerconfig.maxfilenumbers)
+    while(filenumber >= loggerconfig.maxfilenumbers)
     {
         remove(loggerconfig.logfile + "." + std::to_string(filenumber - 1));
         filenumber--;
