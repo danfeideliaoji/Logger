@@ -3,6 +3,7 @@
 #include <mutex>
 #include <string>
 #include <queue>
+#include<thread>
 enum class LogLevel
 {   
     DEBUG,
@@ -23,12 +24,6 @@ inline int operator&(OutPutMode a, OutPutMode b)
 {
     return (static_cast<int>(a) & static_cast<int>(b));
 }
-struct LoggerQueue{
-    std::queue<std::string> logQueue;
-    std::mutex mutex;
-    std::condition_variable cv;
-    bool stop=false;
-};
 struct LoggerConfig {
     std::mutex configmutex;
     size_t maxfilebytes = 1 * 1024 * 1024;
@@ -40,4 +35,18 @@ struct LoggerConfig {
     std::chrono::milliseconds flushuntervalms{100}; // 等待 50ms 即使队列未满也写
     std::size_t bufferlimit=1024;
     static bool ifkeeplastlogs;
+};
+struct Loggermessage{
+    std::string message;
+    LogLevel level;
+    OutPutMode output;
+    const char* file;
+    int line;
+    std::thread::id threadid;
 }; 
+struct LoggerQueue{
+    std::queue<struct Loggermessage> logQueue;
+    std::mutex mutex;
+    std::condition_variable cv;
+    bool stop=false;
+};

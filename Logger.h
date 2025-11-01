@@ -22,7 +22,7 @@ public:
         static Logger instance;
         return instance;
     }
-    void log(const std::string &message, LogLevel level, const char *file, int line, OutPutMode output = OutPutMode::UNKNOWN);
+    void log(std::string message, LogLevel level, const char *file, int line, OutPutMode output = OutPutMode::UNKNOWN);
 
 public:
     struct LoggerConfig loggerconfig;
@@ -30,15 +30,19 @@ public:
 private:
     void backgroundProcess();
     void initFromConfig();
+    const std::string& geCurrenttime();
+    const std::string infoString(LogLevel level);
 private:
     static thread_local std::unique_ptr<LogThreadLocal> loggerthreadlocal;
     std::unique_ptr<LogFileSystem> logfilesystem; 
     struct LoggerQueue loggerQueue;
     std::unique_ptr<std::thread> backgroundthread;
-    std::queue<std::string> backgroundqueue;
+    std::queue<struct Loggermessage> backgroundqueue;
     std::ofstream logstream;
     std::size_t currentfilebyte = 0;
-    size_t maxfilebytes ;
+    size_t maxfilebytes;
+    size_t cachedSec;
+    std::string cachedWallTime;
     std::string logfile ;
     std::chrono::milliseconds flushuntervalms; // 等待 50ms 即使队列未满也写
 };
