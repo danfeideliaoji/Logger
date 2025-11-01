@@ -7,7 +7,7 @@
 #include <mutex>
 #include <iostream>
 #include <thread>
-#include <filesystem>
+
 #include "Logger.h"
 bool LoggerConfig::ifkeeplastlogs = true;
 bool Logger::isexit = false;
@@ -15,14 +15,13 @@ thread_local std::unique_ptr<LogThreadLocal> Logger::loggerthreadlocal(nullptr);
 Logger::Logger()
 {   initFromConfig();
     Logger::isexit = true;
-    logsJudge();
-    fileCreate();
+    logfilesystem = std::make_unique<LogFileSystem>(loggerconfig);
+    currentfilebyte = logfilesystem->logsInit(LoggerConfig::ifkeeplastlogs);
+    logfilesystem->fileCreate(logstream);
     backgroundthread = std::make_unique<std::thread>(&Logger::backgroundProcess, this);
 }
 void Logger::initFromConfig(){
-    std::unique_lock<std::mutex> lock(loggerconfig.configmutex);
     maxfilebytes = loggerconfig.maxfilebytes;
-    maxfilenumbers = loggerconfig.maxfilenumbers;
     logfile = loggerconfig.logfile;
     flushuntervalms = loggerconfig.flushuntervalms;
 }
@@ -60,7 +59,7 @@ void Logger::backgroundProcess()
         currentfilebyte += message.size();
         if (currentfilebyte >= loggerconfig.maxfilebytes)
         {
-            logRotate();
+            logfilesystem->logRotate(logstream);
             currentfilebyte = message.size();
             if (currentfilebyte > loggerconfig.maxfilebytes)
             {
@@ -72,44 +71,6 @@ void Logger::backgroundProcess()
         message.clear();
     }
 }
-void Logger::logsJudge()
-{
-    using namespace std::filesystem;
-    if (LoggerConfig::ifkeeplastlogs)
-    {
-        if (!exists("./logs"))
-        {
-            create_directory("./logs");
-        }
-        else
-        {
-            currentfilebyte = file_size(loggerconfig.logfile);
-            filenumber = 0;
-            for (auto &entry : directory_iterator("logs"))
-            {
-                if (is_regular_file(entry.path()))
-                {
-                    filenumber++;
-                }
-            }
-        }
-    }
-    else
-    {
-        if (exists("./logs"))
-        {
-            try
-            {
-                remove_all("./logs");
-            }
-            catch (const filesystem_error &e)
-            {
-                std::cerr << "删除失败: " << e.what() << std::endl;
-            }
-            create_directory("./logs");
-        }
-    }
-}
 
 void Logger::log(const std::string &message, LogLevel level, const char *file, int line, OutPutMode output)
 {
@@ -119,48 +80,4 @@ void Logger::log(const std::string &message, LogLevel level, const char *file, i
     }
     loggerthreadlocal->appendMesssage(message, level, output, file, line);
 }
-void Logger::fileCreate()
-{
-    if (!(loggerconfig.outputmode & OutPutMode::FILE))
-    {
-        return;
-    }
-    logstream.open(loggerconfig.logfile, std::ios::app);
-    if (!logstream.is_open())
-    {
-        logstream.open(loggerconfig.logfile, std::ios::out);
-    }
-}
 
-
-void Logger::logRotate()
-{
-    logstream.close();
-    filenumber++;
-    logUpdateDelete();
-    fileCreate();
-}
-void Logger::logUpdateDelete()
-{
-    using namespace std::filesystem;
-    while (filenumber >= loggerconfig.maxfilenumbers)
-    {
-        remove(loggerconfig.logfile + "." + std::to_string(filenumber - 1));
-        filenumber--;
-    }
-    for (int i = filenumber - 1; i >= 0; --i)
-    {
-        std::string oldname;
-        if (i == 0)
-        {
-            oldname = loggerconfig.logfile;
-        }
-        else
-            oldname = loggerconfig.logfile + "." + std::to_string(i);
-        std::string newname = loggerconfig.logfile + "." + std::to_string(i + 1);
-        if (exists(oldname))
-        {
-            rename(oldname, newname);
-        }
-    }
-}

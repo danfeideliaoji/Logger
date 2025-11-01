@@ -11,6 +11,7 @@
 #include <chrono>
 #include"common.h"
 #include"LogThreadLocal.h"
+#include"LogFileSystem.h"
 class Logger
 {
 public:
@@ -27,22 +28,17 @@ public:
     struct LoggerConfig loggerconfig;
     static bool isexit;
 private:
-    void logsJudge();
-    void fileCreate();
-    void logRotate();
-    void logUpdateDelete();
     void backgroundProcess();
     void initFromConfig();
 private:
-    static thread_local std::unique_ptr<LogThreadLocal> loggerthreadlocal; 
+    static thread_local std::unique_ptr<LogThreadLocal> loggerthreadlocal;
+    std::unique_ptr<LogFileSystem> logfilesystem; 
     struct LoggerQueue loggerQueue;
     std::unique_ptr<std::thread> backgroundthread;
     std::queue<std::string> backgroundqueue;
     std::ofstream logstream;
     std::size_t currentfilebyte = 0;
-    std::size_t filenumber = 1;
     size_t maxfilebytes ;
-    int maxfilenumbers ;
     std::string logfile ;
     std::chrono::milliseconds flushuntervalms; // 等待 50ms 即使队列未满也写
 };
