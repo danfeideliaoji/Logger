@@ -10,18 +10,26 @@
 #include <filesystem>
 #include "Logger.h"
 bool LoggerConfig::ifkeeplastlogs = true;
-bool Logger::isexit=false;
+bool Logger::isexit = false;
+thread_local std::unique_ptr<LogThreadLocal> Logger::loggerthreadlocal(nullptr);
 Logger::Logger()
-{   Logger::isexit=true;
+{   initFromConfig();
+    Logger::isexit = true;
     logsJudge();
     fileCreate();
     backgroundthread = std::make_unique<std::thread>(&Logger::backgroundProcess, this);
+}
+void Logger::initFromConfig(){
+    std::unique_lock<std::mutex> lock(loggerconfig.configmutex);
+    maxfilebytes = loggerconfig.maxfilebytes;
+    maxfilenumbers = loggerconfig.maxfilenumbers;
+    logfile = loggerconfig.logfile;
+    flushuntervalms = loggerconfig.flushuntervalms;
 }
 Logger::~Logger()
 {
     {
         std::unique_lock<std::mutex> lock(loggerQueue.mutex);
-        ossPush();
         loggerQueue.stop = true;
         loggerQueue.cv.notify_all();
     }
@@ -32,16 +40,17 @@ void Logger::backgroundProcess()
     while (true)
     {
         //  std::cerr<<loggerQueue.stop<<"a";
-        {
+        {   
+            // std::this_thread::sleep_for(flushuntervalms);
             std::unique_lock<std::mutex> lock(loggerQueue.mutex);
             loggerQueue.cv.wait(lock, [this]
-                            { return !loggerQueue.logQueue.empty() || loggerQueue.stop; });
+                                { return !loggerQueue.logQueue.empty() || loggerQueue.stop; });
             if (loggerQueue.stop && loggerQueue.logQueue.empty())
             {
                 break;
             }
             backgroundqueue.swap(loggerQueue.logQueue);
-        }    
+        }
         std::string message;
         while (!backgroundqueue.empty())
         {
@@ -102,21 +111,13 @@ void Logger::logsJudge()
     }
 }
 
-void Logger::log(const std::string &message, LogLevel level, const char *file, int line)
+void Logger::log(const std::string &message, LogLevel level, const char *file, int line, OutPutMode output)
 {
-    std::unique_lock<std::mutex> lock(loggerQueue.mutex);
-    if (level < loggerconfig.loglevel)
+    if(!loggerthreadlocal)
     {
-        return;
+        loggerthreadlocal =std::make_unique<LogThreadLocal>(loggerconfig,loggerQueue);
     }
-    auto now = std::chrono::system_clock::now();
-    if (now - lasttimeupdate >= std::chrono::seconds(1))
-    {
-        lasttimeupdate = now;
-        currenttime = getCurrentTime();
-    }
-    messageCreate(message, currenttime, level, file, line);
-    notify();
+    loggerthreadlocal->appendMesssage(message, level, output, file, line);
 }
 void Logger::fileCreate()
 {
@@ -130,71 +131,8 @@ void Logger::fileCreate()
         logstream.open(loggerconfig.logfile, std::ios::out);
     }
 }
-void Logger::ossPush()
-{
-    if (!oss.str().empty())
-    {
-        loggerQueue.logQueue.push(std::move(oss.str()));
-        oss.str("");
-    }
-}
-void Logger::messageCreate(const std::string &message, const std::string &currenttime,
-                           LogLevel level, const char *file, int line)
-{
-    std::string logstring;
-    switch (level)
-    {
-    case LogLevel::DEBUG:
-        logstring = "DEBUG";
-        break;
-    case LogLevel::INFO:
-        logstring = "INFO";
-        break;
-    case LogLevel::WARN:
-        logstring = "WARN";
-        break;
-    case LogLevel::ERROR:
-        logstring = "ERROR";
-        break;
-    }
-    if (currentbuffer + message.size() + 48 > loggerconfig.bufferlimit)
-    {
-        ossPush();
-        currentbuffer = 0;
-    }
-    oss << "[" << currenttime << "]" << "[" << getCurrentId() << "]"
-        << "[" << file << ":" << std::to_string(line) << "]" << "log:" << message << "\n";
-    currentbuffer += message.size() + 48;
-}
-void Logger::notify()
-{
-    if (loggerQueue.logQueue.size() >= loggerconfig.batchsize ||
-        std::chrono::system_clock::now() - lastnotifytime >= loggerconfig.flushuntervalms)
-    {
-        lastnotifytime = std::chrono::system_clock::now();
-        loggerQueue.cv.notify_one();
-    }
-}
-std::string Logger::getCurrentId()
-{
-    idoss.str("");
-    idoss << std::this_thread::get_id();
-    return idoss.str();
-}
-std::string Logger::getCurrentTime()
-{
-    auto now = std::chrono::system_clock::now();
-    std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::tm tm_time;
-#if defined(_WIN32) || defined(_WIN64)
-    localtime_s(&tm_time, &t);
-#else
-    localtime_r(&t, &tm_time);
-#endif
-    timeoss.clear();
-    timeoss << std::put_time(&tm_time, "%Y-%m-%d %H:%M:%S");
-    return timeoss.str();
-}
+
+
 void Logger::logRotate()
 {
     logstream.close();
@@ -205,7 +143,7 @@ void Logger::logRotate()
 void Logger::logUpdateDelete()
 {
     using namespace std::filesystem;
-    while(filenumber >= loggerconfig.maxfilenumbers)
+    while (filenumber >= loggerconfig.maxfilenumbers)
     {
         remove(loggerconfig.logfile + "." + std::to_string(filenumber - 1));
         filenumber--;
