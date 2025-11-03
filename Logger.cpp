@@ -67,16 +67,12 @@ void Logger::backgroundProcess()
             }
             backgroundqueue.pop();
         }
+        if (logstream.is_open()) {
+            logstream.flush();
+        }
     }   
 }
-void Logger::log(std::string message, LogLevel level, const char *file, int line, OutPutMode output)
-{
-    if (!loggerthreadlocal)
-    {
-        loggerthreadlocal = std::make_unique<LogThreadLocal>(loggerQueue);
-    }
-    loggerthreadlocal->appendMessage(message, level, output, file, line);
-}
+
 const std::string &Logger::geCurrenttime()
 {
     using namespace std::chrono;
@@ -97,7 +93,7 @@ const std::string &Logger::geCurrenttime()
     }
     return cachedWallTime;
 }
-const std::string Logger::infoString(LogLevel level)
+const char* Logger::infoString(LogLevel level)
 {
     switch (level)
     {

@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <sstream>
 #include <chrono>
+#include <utility>
 #include"common.h"
 #include"LogThreadLocal.h"
 #include"LogFileSystem.h"
@@ -32,13 +33,29 @@ public:
         static Logger instance;
         return instance;
     }
-    void log(std::string message, LogLevel level, const char *file, int line, OutPutMode output = OutPutMode::UNKNOWN);
+    template<typename T>
+    void log(T&& message, LogLevel level, const char *file, int line, OutPutMode output = OutPutMode::UNKNOWN){
+    loggerconfig=std::atomic_load(&loggerConfig);
+    if (level < loggerconfig->loglevel)
+    {
+        return;
+    }
+    if (output == OutPutMode::UNKNOWN)
+    {
+        output = loggerconfig->outputmode;
+    }        
+    if (!loggerthreadlocal)
+    {
+        loggerthreadlocal = std::make_unique<LogThreadLocal>(loggerQueue);
+    }
+    loggerthreadlocal->appendMessage(std::forward<T>(message), level, output, file, line);
+    }
 
 public:
 private:
     void backgroundProcess();
     const std::string& geCurrenttime();
-    const std::string infoString(LogLevel level);
+    const char* infoString(LogLevel level);
 private:
     std::shared_ptr<struct LoggerConfig> loggerconfig;
     static thread_local std::unique_ptr<LogThreadLocal> loggerthreadlocal;
