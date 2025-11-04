@@ -30,11 +30,9 @@
 新创的CMakeLists加上
 
 ```
-
 add_subdirectory(Logger)
 
 target_link_libraries(main PRIVATE Logger)
-
 ```
 
 添加后完成下面三步就完成构建
@@ -44,7 +42,6 @@ mkdir build
 cd build
 
 cmake ..
-
 ```
 
 说明：
