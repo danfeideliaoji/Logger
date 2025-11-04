@@ -13,7 +13,7 @@ LogFileSystem::~LogFileSystem()
 size_t LogFileSystem::logsInit()
 {
     using namespace std::filesystem;
-    path logdir=path(PROJECT_SOURCE_DIR)/"/logs";
+    path logdir=path(PROJECT_SOURCE_DIR)/"logs";
     if (loggerconfig->keeplastlogs)
     {
         if (!exists(logdir))
@@ -77,10 +77,14 @@ void LogFileSystem::logRotate(std::ofstream &logstream)
 void LogFileSystem::logUpdateDelete()
 {
     using namespace std::filesystem;
+    std::string t=loggerconfig->logfile;
+    size_t pos=t.rfind(".txt");
+    if(pos!=std::string::npos)
+            t.erase(pos);
     while (filenumber >= loggerconfig->maxfilenumbers)
     {
        try{
-        remove(loggerconfig->logfile + "." + std::to_string(filenumber - 1));
+        remove( t + std::to_string(filenumber - 1)+".txt");
        }
        catch (const filesystem_error &e)
        {
@@ -88,16 +92,17 @@ void LogFileSystem::logUpdateDelete()
        } 
         filenumber--;
     }
-    for (size_t i = filenumber - 1; i >= 0; --i)
+    for (size_t i = filenumber-1 ; i >= 1; --i)
     {
+        std::string newname = t + std::to_string(i + 1)+".txt";
         std::string oldname;
-        if (i == 0)
+        if (i == 1)
         {
             oldname = loggerconfig->logfile;
         }
-        else
-            oldname = loggerconfig->logfile + "." + std::to_string(i);
-        std::string newname = loggerconfig->logfile + "." + std::to_string(i + 1);
+        else{
+            oldname = t + std::to_string(i)+".txt";
+        }
         if (exists(oldname))
         {
             try{

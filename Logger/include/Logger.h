@@ -172,6 +172,18 @@ void motifyConfig(motifyType type, T value)
             newconfig->maxfilebytes = value;
 		}
 	}
+    else if constexpr(std::is_same<T,std::string>::value)
+    {
+        if(type==motifyType::LOGFILE)
+        {
+            std::string t=std::string(PROJECT_SOURCE_DIR)+std::string("/logs/")+value;
+            if(t.find(".txt")==std::string::npos)
+                t+=".txt";
+            }
+            else if(t.size()-t.rfind(".txt")!=4)
+                t+=".txt";
+            newconfig->logfile = t;
+    }
     std::atomic_store(&loggerConfig, newconfig);
 }
 

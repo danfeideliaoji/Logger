@@ -10,5 +10,5 @@ public:
 private:
     void logUpdateDelete();
     std::shared_ptr<struct LoggerConfig>loggerconfig;
-    size_t filenumber=0;
+    size_t filenumber=1;
 };
