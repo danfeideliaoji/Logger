@@ -28,21 +28,25 @@
 下载Logger到项目根目录，在项目根目录外CMakeLists文件夹（与 Logger 同级）：
 
 新创的CMakeLists加上
-'''
+
+```
+
 add_subdirectory(Logger)
 
 target_link_libraries(main PRIVATE Logger)
 
-'''
+```
+
 添加后完成下面三步就完成构建
-'''
+```
 mkdir build
 
 cd build
 
 cmake ..
 
-'''
+```
+
 说明：
 
 
