@@ -1,6 +1,8 @@
 # Logger
 一个轻量级且高性能的cpp日志库，旨在让项目快速集成日志功能。
 ## 功能特性
+高性能，1秒内可记录百万条日志记录
+
 接口简单，用CMake构建跨平台，可直接使用。
 
 支持 DEBUG / INFO / WARNING / ERROR 级别与过滤。
@@ -13,7 +15,7 @@
 
 线程安全，文件异常捕获，异步写入，线程缓冲提升并发性能。
 
-无冗余拷贝，追求高性能、易集成。
+无冗余拷贝，内存消耗小。
 
 支持动态配置，提供多种配置选择。
 
@@ -54,11 +56,22 @@ Linux/macOS: build/lib/libLogger.a
 Windows: build/lib/Logger.lib
 
 一个简单CMakeLists演示
-
+```
 cmake_minimum_required(VERSION 3.10)
 project(main)
 set(CMAKE_CXX_STANDARD 17)
 add_executable(main main.cpp)
 add_subdirectory(Logger)
 target_link_libraries(main PRIVATE Logger)
+```
+
+## 性能演示
+
+注：下面演示是vs2022 release配置 单位毫秒
+
+### 日志双线程总共输出100万次所用时间
+<img width="1730" height="424" alt="image" src="https://github.com/user-attachments/assets/e9ea64ae-2457-4005-bee6-790f88883dfe" />
+
+### 直接输出数字从1到100万所用时间
+<img width="1730" height="424" alt="image" src="https://github.com/user-attachments/assets/6aaafd7e-5cb0-4775-97ae-9bd947255bc0" />
 
