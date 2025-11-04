@@ -33,7 +33,8 @@ add_subdirectory(Logger)
 
 target_link_libraries(main PRIVATE Logger)
 
-添加后完成下面三步就完成构造
+添加后完成下面三步就完成构建
+
 mkdir build
 
 cd build
@@ -48,4 +49,13 @@ cmake ..
 Linux/macOS: build/lib/libLogger.a
 
 Windows: build/lib/Logger.lib
+
+一个简单CMakeLists演示
+
+cmake_minimum_required(VERSION 3.10)
+project(main)
+set(CMAKE_CXX_STANDARD 17)
+add_executable(main main.cpp)
+add_subdirectory(Logger)
+target_link_libraries(main PRIVATE Logger)
 
