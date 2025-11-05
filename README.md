@@ -75,3 +75,49 @@ target_link_libraries(main PRIVATE Logger)
 ### 直接输出数字从1到100万所用时间
 <img width="1730" height="424" alt="image" src="https://github.com/user-attachments/assets/6aaafd7e-5cb0-4775-97ae-9bd947255bc0" />
 
+## 快速开始
+```
+#include "Logger.h"
+
+int main() {
+    LOG_INFO("Hello Logger!"); //直接日志输出 默认是文件
+    LOGF_DEBUG("Debug number: %d", 42);//格式化输出
+    LOG_CWARNING("Warning");//C代表console 表示这条日志与配置无关 直接输出到控制台
+    LOGF_FERROR("Error code: %d", -1);//F代表file 表示日志与配置无关 直接输出文件
+    //下面是自定义配置 也可直接使用配置
+    LOG_SET_LEVEL(LogLevel INFO) //表示INFO以下的消息不需要输出
+    LOG_SET_MAXFILENUM(20)//表示日志获得最大文件数为20
+    LOG_SET_OUTPUTMODE(OutPutMode Console)//设置输出到控制台
+    LOG_GET_MAXFILENUM()//获得最大的文件数
+    LOG_GET_LEVEL()// 获得过滤level
+    //其他配置请看Logger.h 和 common.h
+    return 0;
+}
+```
+## 🧭 未来计划（如果打算升级的话）
+🚀 性能与系统优化
+
+ 支持多文件异步写入（不同级别写入不同文件）
+
+ 优化异步队列机制，减少线程切换开销
+
+ 增加无锁队列版本，进一步提升并发性能
+
+ 支持日志压缩与分块写入
+
+⚙️ 功能扩展
+
+ 支持自定义日志格式模板（例如：[{time}] [{level}] {msg}）
+
+ 控制台输出颜色高亮（不同级别显示不同颜色）
+
+ 添加日志统计（实时显示写入速度、丢失率等）
+
+ 支持远程日志上传（HTTP / TCP / UDP）
+
+ 支持 JSON / CSV 输出格式，方便日志分析
+
+💡 开发与文档
+
+ 提供更详细的 API 文档与示例
+
