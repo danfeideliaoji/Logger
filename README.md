@@ -75,6 +75,10 @@ target_link_libraries(main PRIVATE Logger)
 ### 直接输出数字从1到100万所用时间
 <img width="1730" height="424" alt="image" src="https://github.com/user-attachments/assets/6aaafd7e-5cb0-4775-97ae-9bd947255bc0" />
 
+### 输出消息
+<img width="1730" height="624" alt="image" src="https://github.com/user-attachments/assets/db6d4683-9aa2-4c88-a49d-a87462ecd056" />
+
+分别对应 输出等级 时间 线程ID 文件位置 消息
 ## 快速开始
 ```
 #include "Logger.h"
