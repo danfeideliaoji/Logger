@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <fstream>
 #include <mutex>
@@ -133,18 +133,15 @@ void motifyConfig(motifyType type, T value)
             newconfig->outputmode = value;
         }
     }
-    else if constexpr (std::is_same<T, std::string>::value)
-    {
-        if (type == motifyType::LOGFILE)
-        {
-            newconfig->logfile = value;
-        }
-    }
     else if constexpr (std::is_same<T, std::size_t>::value)
     {
         if (type == motifyType::MAXFILEBYTE)
         {
             newconfig->maxfilebytes = value;
+        }
+         if (type == motifyType::MAXFILENUMBERS)
+        {
+            newconfig->maxfilenumbers = value;
         }
     }
     else if constexpr (std::is_same<T, int>::value)
@@ -161,28 +158,18 @@ void motifyConfig(motifyType type, T value)
             newconfig->keeplastlogs = value;
         }
     }
-    else if constexpr (std::is_same<T, size_t>::value)
+    else if constexpr (std::is_same<T, std::string>::value)
     {
-        if (type == motifyType::MAXFILENUMBERS)
+        if (type == motifyType::LOGFILE)
         {
-            newconfig->maxfilenumbers = value;
-        }
-        if(type==motifyType::MAXFILEBYTE)
-        {
-            newconfig->maxfilebytes = value;
-		}
-	}
-    else if constexpr(std::is_same<T,std::string>::value)
-    {
-        if(type==motifyType::LOGFILE)
-        {
-            std::string t=std::string(PROJECT_SOURCE_DIR)+std::string("/logs/")+value;
-            if(t.find(".txt")==std::string::npos)
-                t+=".txt";
+            std::string t = std::string(PROJECT_SOURCE_DIR) + std::string("/logs/") + value;
+            auto pos = t.rfind(".txt");
+            if (pos == std::string::npos || t.size() - pos != 4)
+            {
+                t += ".txt";
             }
-            else if(t.size()-t.rfind(".txt")!=4)
-                t+=".txt";
             newconfig->logfile = t;
+        }
     }
     std::atomic_store(&loggerConfig, newconfig);
 }
