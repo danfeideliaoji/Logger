@@ -45,9 +45,9 @@ cd build
 
 cmake ..
 ```
+### 完成以上操作后 直接include "Logger.h"即可使用
 
 说明：
-
 
 生成的静态库位于：
 
