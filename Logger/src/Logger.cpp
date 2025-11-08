@@ -47,7 +47,7 @@ void Logger::backgroundProcess()
             {
                 std::cout << infoString(t.level) << "[" << timeStr << "]["
                           << t.threadid << "]["
-                          << t.file << ":" << t.line << " " << t.message << "\n";
+                          << t.file << ":" << t.line << "]" << t.message << "\n";
             }
             if (t.output & OutPutMode::FILE)
             {
